@@ -1,0 +1,700 @@
+import discord
+from discord.ui import Button , View
+from discord.ext import commands
+import asyncpg
+import random
+import asyncio
+
+
+bot = commands.Bot(command_prefix=".",
+status = discord.Status.online,
+intents= discord.Intents.all())  
+bot.remove_command("help")
+common = ('mouse' , 'cockroach',  'snail')
+epic = ( 'snake' , 'husky' , 'bear', )
+legendary = ('uwugirl',    'dragon')
+mythical = ('pablo')
+
+
+
+
+
+
+
+async def create_db_pool():
+    bot.db = await asyncpg.create_pool(dsn="postgres://postgres:{postgrespass}@localhost:5432/TeamWork")
+    print ("Connection successful")
+
+@bot.event
+async def on_ready():
+    print ('ok')
+
+async def check(id1 , ctx):
+    row = await ctx.bot.db.fetch("SELECT name FROM ppbot WHERE user_id = $1" , id1)
+    if row == []:
+       await ctx.send('no balls? do .new')
+       return True
+    else:
+        return False
+
+async def check_price(ctx,price,user):
+    user_balls = await ctx.bot.db.fetch('SELECT * FROM ppbot WHERE user_id = $1' , user)
+    if price > user_balls[0]['balls']:
+        await ctx.send('you too broke lmfao')
+        return False
+    else:
+        return True
+
+async def add_item(ctx,id,amount,column,table):
+    inventory = await ctx.bot.db.fetchrow(f'SELECT {column} FROM {table} WHERE user_id = $1', id)
+    inventory =+ amount
+    await ctx.bot.db.execute(f'UPDATE {table} SET {column} = $1 WHERE user_id = $2', inventory , id)
+
+async def check_item(ctx,id,item,table):
+    inventory = await ctx.bot.db.fetchrow(f'SELECT {item} FROM {table} WHERE user_id = $1', id)
+    if inventory[0] <= 0:
+        embed = discord.Embed(title = '**uhh you forgettin smth**' , description = f'buy a {item} first!' , color = discord.Colour.red())
+        embed.set_footer(text = 'do .shop to check out items')
+        await ctx.send(embed=embed)
+        return False
+    else:
+        return True
+
+async def add (ctx,id,amount,balls):
+    await ctx.bot.db.execute('UPDATE ppbot SET balls = $1 WHERE user_id = $2' ,     balls+amount , id)
+
+async def sub(ctx,id,amount,item,table):
+    data = await ctx.bot.db.fetch(f'SELECT {item} FROM {table} WHERE user_id = $1', id)
+    new_data = data[0][item] - amount
+    await ctx.bot.db.execute(f'UPDATE {table} SET {item} = $1 WHERE user_id = $2', new_data , id)
+
+ 
+
+
+
+
+
+'''
+@bot.event
+async def on_command_error (ctx, error) :
+        if isinstance (error, commands.CommandOnCooldown): #checks if on cooldown
+            embed = discord.Embed(
+                title = ('**Daddy chill**'),
+                description = ("try again in **{:.2f}** seconds".format)(error.retry_after),
+                colour = discord.Colour.red())
+            await ctx.send(embed=embed)
+        '''
+
+class testyy:
+    no = 100
+@bot.command()
+async def helo(ctx):
+
+    
+    
+    button = Button(label = "add 100" , style = discord.ButtonStyle.green)
+    view = View()   
+    async def button_callback(interaction):
+    
+        await ctx.message.edit(testyy.no,view=view)
+        testyy.no += 100
+        
+   
+    button.callback = button_callback
+    view.add_item(button)
+
+
+    await ctx.send(testyy.no ,view = view)
+@bot.command()
+async def execute(ctx,*message):
+    user = ctx.author.id
+    
+    if user == (819916619387109406):
+        message = ' '.join(message)
+        try:
+            await ctx.bot.db.execute('INSERT INTO stats(pet,hp,def,dmg) VALUES ($1,$2,$3,$4)', 'bear'    ,125 ,20,20)
+            await ctx.bot.db.execute('INSERT INTO stats(pet,hp,def,dmg) VALUES ($1,$2,$3,$4)', 'uwugirl' ,175,30,50)
+            await ctx.bot.db.execute('INSERT INTO stats(pet,hp,def,dmg) VALUES ($1,$2,$3,$4)', 'dragon'  ,190,35,40)
+            await ctx.bot.db.execute('INSERT INTO stats(pet,hp,def,dmg) VALUES ($1,$2,$3,$4)', 'pablo'   ,225,50,75)
+            await ctx.send('executed!')
+        except:
+            await ctx.send('error')
+    else:
+        await ctx.send('you are not the owner.')
+        return
+@bot.command()
+async def new(ctx):
+    name = 'Unnamed'
+    balls = 0
+    multiplier = 1
+    tongue = 0
+    nutcracker = 0
+    user_id = ctx.author.id
+    row = await ctx.bot.db.fetch("SELECT name FROM ppbot WHERE user_id = $1" , user_id)
+    if row == []:
+          await bot.db.execute("INSERT INTO ppbot(user_id , name , balls , multiplier , tongue , nutcracker , equippet) VALUES ($1 , $2 , $3 , $4 ,$5 ,$6,$7)", user_id , name , balls , multiplier,tongue,nutcracker,'nopet')
+          await bot.db.execute("INSERT INTO inventory(user_id) VALUES ($1)", user_id)
+          await ctx.send('profile created! use .help to see the commands')
+    else:
+         await ctx.send('you already have a profile')
+   
+@bot.command()
+async def help(ctx):
+    embed = discord.Embed(
+        title = ("Don't know how to use bot , here are ze commands B)"),
+        colour = discord.Colour.green()
+    )
+    embed.add_field(name = '**Get Started:**' , value = "**.new:** get yo balls \n **.rename:** name yo balls ", inline = True)
+    embed.add_field(name= '**Get balls:**' , value = "**.eat:**  Eat some of deez *juicy* balls :smirk: \n **.lick:** to suckon deez balls \n **.crack:** crack open deez balls and them like oysters" , inline = False)
+    embed.add_field(name= '**Other**' , value = "**.show<member>:** show those balls \n **.gamble (amount):** to gamble those balls \n **.leaderboard:** to see those balls")
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def gamble(ctx,amount):
+    user = ctx.author.id
+    user_balls = await bot.db.fetch('SELECT * FROM ppbot WHERE user_id = $1' , user)
+    amount = int(amount)
+    winorloss = ("win" , "loss")
+    
+    if amount <= 0 or None:
+        await ctx.send('yo did you never gamble before :skull:')
+    elif amount > user_balls[0]['balls']:
+        await ctx.send('too broke lmfao')
+    else:
+        winloss = random.choice(winorloss)
+        if winloss == ('win'):
+            newamount = amount + user_balls[0]['balls']
+            await bot.db.execute('UPDATE ppbot SET balls = $1 WHERE user_id = $2' , newamount , user)
+            embed = discord.Embed(
+            title = ("**Lessgooo**"),
+            description = (f'you won {amount} balls !!'),
+            colour = discord.Colour.green())
+            await ctx.send(embed=embed)
+        elif winloss == ('loss'):
+            newamount = user_balls[0]['balls'] - amount
+            await bot.db.execute('UPDATE ppbot SET balls = $1 WHERE user_id = $2' , newamount , user)
+            embed = discord.Embed(
+                title = ('**RIP LMAO**'),
+                description = (f'you lost {amount} balls :joy_cat:'),
+                colour = discord.Colour.red())
+            await ctx.send(embed = embed)
+            
+@bot.command()
+async def donate(ctx,Member:discord.Member,amount:int):
+    donator = ctx.author.id
+    await check(donator,ctx)
+    await check(Member.id,ctx)
+    await check_price(ctx,amount,donator)
+    if check_price == False: return
+    
+    get_donator = await ctx.bot.db.fetch('SELECT * FROM ppbot WHERE user_id = $1', donator)
+    get_receiver = await ctx.bot.db.fetch('SELECT * FROM ppbot WHERE user_id = $1', Member.id)
+ 
+    donatorB = get_donator[0]['balls']
+    donatorM = get_donator[0]['multiplier']
+    receiverB = get_receiver[0]['balls']
+    receiverM = get_receiver[0]['multiplier']
+
+    if donatorM < receiverM:   tax = receiverM // donatorM * 100
+    elif donatorM > recieverM: tax = donatorM // receiverM * 100
+    else: tax = 1
+    
+  
+    donation = amount/100*tax
+    donation_total = donation+receiverB
+    await ctx.bot.db.execute('UPDATE ppbot SET balls = $1 WHERE user_id = $2' , donation_total  , Member.id)
+    loss = donatorB - amount
+    await ctx.bot.db.execute('UPDATE ppbot SET balls = $1 WHERE user_id = $2' , loss , donator)
+    embed = discord.Embed(
+        title = "yeeeeee",
+        description = f'you donated **{donation}** to *{Member}*',
+        colour = discord.Colour.random()
+    )
+    embed.set_footer(text = f'{tax}% tax')   
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def show(ctx, Member:discord.Member = None):
+    user = Member or ctx.author
+    
+    await check(user.id,ctx)
+    user_inventory = await ctx.bot.db.fetch('SELECT * FROM inventory WHERE user_id = $1' , user.id)
+    user_balls = await ctx.bot.db.fetch('SELECT * FROM ppbot WHERE user_id = $1 ' , user.id)
+    pfp = user.avatar.url
+    
+    if user_balls[0]['balls'] >  10000000:
+        ballsize = ('(balls too big to show)')
+    elif user_balls[0]['balls'] > 1000000:
+        ballsize = "8"*(user_balls[0]['balls']//100000)+"=D"
+    elif user_balls[0]['balls'] > 100000:
+        ballsize = "8"*(user_balls[0]['balls']//1000)+"=D"
+    else: 
+        ballsize = "8"*(user_balls[0]['balls']//100)+"=D"
+
+    equippet = ('nonepet')
+    if user_balls[0]['equippet'] == ('nopet'):
+        equippet = ('no pets equipped')
+    else:
+        equippet = (f"uses **{user_balls[0]['equippet']}**")
+
+
+
+    embed = discord.Embed(
+                title = "**Profile Name**",
+                description = (f"**{user_balls[0]['name']}**"),
+                colour = ctx.author.color)
+            
+    embed.add_field(name='᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆📊**Stats**📊᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆' ,  
+        value = f" ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎{user_balls[0]['balls']} balls \n   ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎‎ ‎‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎  ‎{user_balls[0]['multiplier']}x multiplier \n ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎‎ ‎‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ {equippet} " ,inline = False)
+    embed.add_field(name='᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆**Tools**᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆' ,
+        value = f" ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ tongue:**{user_inventory[0]['tongue']}** \n  ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎ ‎  nut cracker: **{user_inventory[0]['nut']}**",inline = False)
+    embed.add_field(name= '᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆**Balls** ᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆' , value = ballsize , inline = False)
+    
+    embed.set_footer(text = 'eat balls , get balls')
+    embed.set_thumbnail(url = pfp)
+    await ctx.send(embed = embed)
+
+
+@bot.command()
+async def inventory(ctx,Member:discord.Member=None):
+    user = Member or ctx.author
+    await check(user.id,ctx)
+    user_pets = await ctx.bot.db.fetch('SELECT * FROM inventory WHERE user_id = $1' , user.id)
+    user_balls = await ctx.bot.db.fetch('SELECT * FROM inventory WHERE user_id = $1' , user.id)
+    pets = ['mouse','cockroach','snail','snake','husky','bear','uwugirl','dragon','pablo']
+    i = 0
+    have_pet = 0
+    petz = set()
+    pfp = user.avatar.url
+    for x in pets:
+        pet_Nam = pets[i]
+        pet_Num = user_pets[0][pet_Nam]
+        if pet_Num > 0:
+            petz.add(f'**{pet_Num}x** {pet_Nam}')
+            have_pet =+ 1
+        i += 1
+    
+    if have_pet == 0:
+        petR = ('no pets')
+    else:
+        petR = petz = " \n ".join(petz)
+        
+        
+
+    embed = discord.Embed(
+        title = (f"**{user}'s Inventory**"),
+        colour = ctx.author.color)
+    
+    embed.add_field(name='᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆**Chest**᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆', value = f"Common Chests: **{user_balls[0]['common']}** \n Epic Chests: **{user_balls[0]['epic']}**  \n  Legendary Chests: **{user_balls[0]['legendary']}** \n Mythical Chests **{user_balls[0]['mythical']}**" , inline = False)
+    embed.add_field(name='᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆**Pets**᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆᠆', value = f"{petR}")
+    embed.set_thumbnail(url=pfp)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def equip(ctx,name):
+    user_id = ctx.author.id
+    checking = await check(user_id,ctx)
+    try:
+        checkpet = await ctx.bot.db.fetch(f'SELECT {name} FROM inventory WHERE user_id = $1',user_id)
+    except:
+        await ctx.send('yo what pet is that :skull:')
+    if checking == False:
+        if checkpet[0][name] == 0:
+            embed = discord.Embed(title = 'uhh you forgettin smth' , description = 'you do not have this pet!' , color = discord.Colour.red())
+            embed.set_footer(text = '.open some chest to get it!')
+            await ctx.send(embed = embed)
+            return
+        elif checkpet[0][name] > 0:
+            await ctx.bot.db.execute('UPDATE ppbot SET equippet = $1 WHERE user_id = $2',name,user_id)
+            await ctx.send ('pet equipped!')
+        
+
+
+async def fightpercent(ctx,hp):
+    if hp >= 80:
+        return '<:healthblockfull:971013316518494218><:healthblockfull:971013316518494218><:healthblockfull:971013316518494218><:healthblockfull:971013316518494218><:healthblockfull:971013316518494218>'
+    elif hp >= 60:
+        return '<:healthblockfull:971013316518494218><:healthblockfull:971013316518494218><:healthblockfull:971013316518494218><:healthblockfull:971013316518494218><:healthblockempty:971013340811890698>'
+    elif hp >= 40:
+        return '<:healthblockfull:971013316518494218><:healthblockfull:971013316518494218><:healthblockfull:971013316518494218><:healthblockempty:971013340811890698><:healthblockempty:971013340811890698>'
+    elif hp >= 20:
+        return '<:healthblockfull:971013316518494218><:healthblockfull:971013316518494218><:healthblockempty:971013340811890698><:healthblockempty:971013340811890698><:healthblockempty:971013340811890698>'
+    elif hp > 0:
+        return '<:healthblockfull:971013316518494218><:healthblockempty:971013340811890698><:healthblockempty:971013340811890698><:healthblockempty:971013340811890698><:healthblockempty:971013340811890698>'
+    elif hp < 0:
+        return '<:healthblockempty:971013340811890698><:healthblockempty:971013340811890698><:healthblockempty:971013340811890698><:healthblockempty:971013340811890698><:healthblockempty:971013340811890698>' 
+
+@bot.command()
+async def testy(ctx):
+    await get_stat(ctx,'snake')
+    hp = snake['hp']
+    await ctx.send(hp)
+
+@bot.command()
+async def fight(ctx,Member:discord.Member):
+    turns = 0
+    
+    user = ctx.author.id
+    user_pet = await ctx.bot.db.fetch('SELECT equippet FROM ppbot WHERE user_id = $1' , user)
+    member_pet = await ctx.bot.db.fetch('SELECT equippet FROM ppbot WHERE user_id = $1', Member.id)
+    pet_stat_user = await ctx.bot.db.fetch('SELECT * FROM stats WHERE pet = $1', user_pet[0]['equippet'])
+    pet_stat_member = await ctx.bot.db.fetch('SELECT * FROM stats WHERE pet = $1', member_pet[0]['equippet'])
+
+    user_hp_tot =  pet_stat_user[0]['hp']
+    user_hp = user_hp_tot
+    user_hp_percent = user_hp/user_hp_tot*100
+    user_dmg = pet_stat_user[0]['dmg']
+    user_def = pet_stat_user[0]['def']
+
+    member_hp_tot = pet_stat_member[0]["hp"]
+    member_hp = member_hp_tot
+    member_hp_percent = member_hp/member_hp_tot*100
+    member_dmg = pet_stat_member[0]['dmg']
+    member_def = pet_stat_user[0]['def']
+
+    
+    user_hp_visual = await fightpercent(ctx,user_hp_percent) 
+    member_hp_visual = await fightpercent(ctx,member_hp_percent)
+    
+    
+
+
+
+    action = ('no action')
+    
+    fight_embed = discord.Embed(title = '**🔪FIGHT🔪**' , color = discord.Color.random())
+    fight_embed.add_field(name = f'**{ctx.author}**' , value = f'❤{user_hp_visual} **{user_hp}** HP', inline = False)
+    fight_embed.add_field(name = f'**{Member}**' , value = f'❤*{member_hp_visual} **{member_hp}** HP', inline = False)
+    fight_embed.add_field(name='**Last Action:**',value = f'{action}')
+    fight_embed.set_thumbnail(url='https://cdn.iconscout.com/icon/premium/png-256-thumb/dog-fight-1654386-1398817.png')
+    fight_embed.set_footer(text='who will win 👀')
+    
+    button = Button(label = "🗡Fight🗡" , style = discord.ButtonStyle.green)
+    
+    async def button_callback(interaction):
+        await interaction.message.edit('aaaaaaaaaaaa')
+
+    button.callback = button_callback
+    view = View()
+    view.add_item(button)
+    await ctx.send('aughhhh', view = view)
+
+    
+    UserGenDmg = random.randint(1,user_dmg)
+    UserGenDef = random.randint(1,user_def)
+    MemberGenDmg = random.randint(1,member_dmg) 
+    MemberGenDef = random.randint(1,member_def)
+    if user_hp < 0:
+        await ctx.send('you have defeated',Member)
+        return
+
+
+
+
+
+
+        
+@bot.command() 
+async def leaderboard(ctx):
+    
+    tops = await ctx.bot.db.fetch('SELECT name , balls , user_id FROM ppbot ORDER BY balls DESC NULLS LAST')
+    top = {}
+    for i in tops:
+        top[i[0]] = i[0]
+   
+    embed = discord.Embed(
+        title = ('**Biggest Balls**'),
+        colour = discord.Colour.random(),
+    )
+    visible_index = 1
+    index = 0
+    for i in top:
+        embed.add_field(name =f" **{visible_index}.** {i} ({await bot.fetch_user(tops[index]['user_id'])})" , value = f"{tops[index]['balls']} balls" , inline = False )
+        if visible_index == 10:
+            break
+        else:
+            index += 1
+            visible_index += 1
+
+    embed.set_footer(text= 'can u get on top?')
+     
+    await ctx.send(embed = embed)
+
+@bot.command()
+@commands.cooldown(1,5,commands.BucketType.user)
+async def eat(ctx):
+    user = ctx.author.id
+    await check(user, ctx)
+    eat_luck = random.randint(1,20)
+    user_balls = await ctx.bot.db.fetch('SELECT * FROM ppbot WHERE user_id = $1' , user)
+    eat_amount = eat_luck * user_balls[0]["multiplier"] 
+    await add(ctx , user , eat_amount,user_balls[0]["balls"]) 
+    
+    eatin = (f'you just ate **{eat_amount}** balls' , f'you devoured **{eat_amount}** balls' , f'you cooked and ate **{eat_amount}** balls' , f'you grilled and ate **{eat_amount}** balls', f'you made spaghetti meat*balls* and got {eat_amount} balls')
+    embed = discord.Embed(
+            description = (random.choice(eatin)),
+            colour = discord.Colour.random()
+        )
+    
+    await ctx.send(embed=embed)
+
+@bot.command()
+@commands.cooldown(1,5,commands.BucketType.user)
+async def beg(ctx):
+    user = ctx.author.id
+    await check(user, ctx)
+    beg_luck = random.randint(1,20)
+    user_balls = await ctx.bot.db.fetch('SELECT * FROM ppbot WHERE user_id = $1' , user)
+    beggin = (f'you begged your mom for balls' , 'you begged obama for his balls' , 'you begged hitler for his balls' , 'ishaan the sigma gave you a percent of his balls' , 'you begged your step-sister for balls' , 'you begged your dog for balls' , 'Pablo donated a percent of his balls' , 'you sub to pokimane for balls')
+    
+    if beggin == ('ishaan the sigma gave you a percent of his balls') or ('Pablo donated a percent of his balls'):
+        beg_amount = beg_luck * user_balls[0]["multiplier"]  * 2
+        await add(ctx , user , beg_amount,user_balls[0]["balls"]) 
+    else:
+        beg_amount = beg_luck * user_balls[0]["multiplier"] 
+        await add(ctx , user , beg_amount,user_balls[0]["balls"]) 
+
+    embed = discord.Embed(
+            description = (random.choice(beggin)),
+            colour = discord.Colour.random()
+        )
+    
+    embed.set_footer(text = f'+{beg_amount} balls')
+    await ctx.send(embed=embed)
+
+@bot.command()
+@commands.cooldown(1,10,commands.BucketType.user)
+async def lick(ctx):
+    user = ctx.author.id
+    await check(user , ctx)
+    lick_luck = random.randint(20,50)
+    user_balls = await ctx.bot.db.fetch('SELECT * FROM ppbot WHERE user_id = $1',user)
+    lick_amount = lick_luck * user_balls[0]["multiplier"]
+    licks = (f"you just lick ma **{lick_amount}** balls" , f"you lick **{lick_amount}** of grandma's balls" , f"you lick **{lick_amount}** of your dog balls" , f"you lick **{lick_amount}** of a children balls , Pedophile.")
+    checked_item = await check_item(ctx,user,'tongue','inventory')
+
+
+    if checked_item == True:
+        await add(ctx , user , lick_amount,user_balls[0]["balls"])
+        embed = discord.Embed(
+            description = (random.choice(licks)),
+            colour = discord.Colour.random()
+        )
+        await ctx.send(embed=embed)
+    
+@bot.command()
+@commands.cooldown(1,15,commands.BucketType.user)
+async def crack(ctx):
+    user = ctx.author.id
+    await check(user , ctx)
+    checked_item = await check_item(ctx,user,'nut','inventory')
+    await check_item(ctx,user,'nut','inventory')
+
+    crack_luck = random.randint(50,100)
+    user_balls = await ctx.bot.db.fetch('SELECT * FROM ppbot WHERE user_id = $1',user)
+    crack_amount = crack_luck * user_balls[0]["multiplier"]
+    cracks = (f'you just pop **{crack_amount}** balls' , f'you squeeze the milk out of {crack_amount} balls' , f'you crack **{crack_amount}** balls' , f'you crack **{crack_amount}** balls of a guy, he have a kink.' , f'you crack **{crack_amount}** of children balls like it was bubble wrap')
+
+    
+    if checked_item == True:
+        await add(ctx , user , crack_amount,user_balls[0]["balls"])
+        embed = discord.Embed(
+            description = (random.choice(cracks)),
+            colour = discord.Colour.random()
+        )
+        await ctx.send(embed=embed)
+
+
+@bot.command()
+async def shop(ctx, chest = None):
+    user = ctx.author.id
+    checking = await check(user, ctx)
+    user_balls = await ctx.bot.db.fetch('SELECT * FROM ppbot WHERE user_id = $1' , user)
+    pills = int(60*user_balls[0]['multiplier']//2.2)
+    
+    normal=discord.Embed(
+        title="**shop**", 
+        description="you buy stuff here",
+        colour = discord.Colour.blue())
+    normal.add_field(name=f"**confidence─__{pills}__ balls**", value="grow some balls , get some multiplier", inline=False)
+    normal.add_field(name="**tongue─__500__ balls**", value="to suck on deez balls", inline=False)
+    normal.add_field(name="**nut cracker─__1000__ balls**", value="to crack deez balls", inline=True)
+    normal.set_footer(text=f"you have {user_balls[0]['balls']} balls to spend")
+    
+    chests= discord.Embed(
+        title = "**Chest Shop**",
+        description = 'You buy chests here',
+        colour = discord.Colour.blue())
+    chests.add_field(name=f'**Common Chest-__3500__ balls**' , value= "Get Common Pets" , inline = False)
+    chests.add_field(name = f'**Epic Chest-__7000__ balls**' , value = "Get Epic Pets" , inline = False)
+    chests.add_field(name= f'**Legendary Chest-__10,000__ balls**',value = 'Get Legendary Pets', inline = False)
+    chests.add_field(name = f"**Mythical Chest-__35,000__ balls**" , value = 'Get Mythical Pet', inline = False)
+    
+
+    if chest == None:
+        await ctx.send(embed=normal)
+    elif chest == ('chest'):
+        await ctx.send(embed=chests)
+
+@bot.command()
+async def buy(ctx,amount:int,item:str):
+    user = ctx.author.id
+    user_balls = await ctx.bot.db.fetch('SELECT * FROM ppbot WHERE user_id = $1' , user)
+    user_inventory = await ctx.bot.db.fetch('SELECT * FROM inventory WHERE user_id = $1', user)
+    itemP = 0
+    await check(user, ctx)
+
+
+    if item == ('confidence'):
+        pillsprice = int(60*user_balls[0]['multiplier']//2.2)
+        item = ('multiplier')
+        itemP = pillsprice
+    elif item == ('tongue'):
+        item = ('tongue')
+        itemP = 500
+    elif item == ('nut'):
+        itemV = ('nut cracker')
+        item = ('nut')
+        itemP = 1000
+    elif item == ('common'):
+        itemV = ('common chest')
+        item = ('common')
+        itemP = 3500
+    elif item == ('epic'):
+        itemV = ('epic chest')
+        item = ('epic')
+        itemP = 7000
+    elif item == ('legendary'):
+        itemV = ('legendary chest')
+        item = ('legendary')
+        itemP = 10000
+    elif item == ('mythical'):
+        itemV = ('mythical chest')
+        item = ('mythical')
+        itemP = 35000
+    else:
+        await ctx.send('what item is that bruh')
+        return
+    
+    try:
+        itemV = itemV
+    except:
+        itemV = item
+ 
+    total = amount + user_inventory[0][item]
+    price = (amount*itemP)
+    checked_price = await check_price(ctx,price,user)
+
+    if checked_price == False:
+        return
+
+    if item == ('multiplier') and checked_price == True:
+        await add_item(ctx,user,total,'multiplier','ppbot')
+        await ctx.send(f'you feel yo balls getting stronger')
+        await sub(ctx,user,itemP,'balls','ppbot')
+        return
+    
+    elif checked_price == True and item != 'multiplier':
+        await add_item(ctx,user,total,item,'inventory')
+        await ctx.send(f'you bought {amount} {itemV}')
+        await sub(ctx,user,itemP,'balls','ppbot')
+
+@bot.command()
+async def open(ctx, chest:str):
+    user = ctx.author.id
+    await check(user,ctx)
+    user_balls = await ctx.bot.db.fetch('SELECT * FROM ppbot WHERE user_id = $1', user)
+    user_pets = await ctx.bot.db.fetch('SELECT * FROM inventory WHERE user_id = $1', user)
+    checked_item = await check_item(ctx, user , chest , 'inventory')
+
+    common = ('mouse' , 'cockroach', 'cockroach' , 'snail', 'snail' , 'snail','nothing')
+    epic = ('snake' , 'snake' , 'snake' , 'husky' , 'nothing' , 'husky' , 'bear', 'nothing' , 'nothing' , 'mouse')
+    legendary = ('uwugirl', 'nothing' , 'dragon' , 'nothing' , 'dragon' , 'nothing' , 'cockroach' , 'snake' , 'husky')
+    mythical = ('nothing' , 'nothing' , 'nothing' , 'nothing' ,'nothing' , 'nothing' , 'nothing' , 'nothing' , 'nothing' , 'nothing' , 'nothing' , 'nothing' , 'pablo' ,'nothing' , 'nothing' , 'nothing' , 'nothing' , 'nothing' , 'nothing' , 'nothing' , 'nothing'   )
+
+    if checked_item == False:
+        return
+    
+
+    if chest == ('common'):
+        pet = random.choice(common)
+    elif chest == ('epic'):
+        pet = random.choice(epic)
+    elif chest ==  ('legendary'):
+        pet = random.choice(legendary)
+    elif chest == ('mythical'):
+        pet = random.choice(mythical)
+    else:
+        await ctx.send('yo what chest is that :skull:')
+        return
+    
+
+
+
+    if pet == ('nothing'):
+        nothingbed = discord.Embed(
+            title = '**lmfaooo**',
+            description = 'you got nothing :joy_cat:',
+            colour = discord.Colour.red())
+        await ctx.send(embed = nothingbed)
+        await sub(ctx,user,1,chest,'inventory')
+    
+    elif pet != ('nothing'):
+        receive = discord.Embed(title = '**you got new pet!**',description = f'you got 1x **{pet}**',colour = discord.Colour.blue())
+        receive.set_footer(text= 'do .inventory to check your pets')
+        '''newpet = user_balls[0][pet] + 1
+        await ctx.bot.db.execute(f'UPDATE ppbot SET {pet} = $1 WHERE user_id = $2' , newpet , user)
+        await ctx.send(embed = receive)'''
+        total = user_pets[0][pet] + 1
+        await add_item(ctx,user,total,pet,'inventory')
+        await sub(ctx,user,1,chest,'inventory')
+        await ctx.send(embed=receive)
+
+@bot.command()
+async def rename(ctx, *,name):
+    name = (name)
+    user_id = ctx.author.id
+    checking = await check(user_id,ctx)
+    print(name)
+    await bot.db.execute(f"UPDATE ppbot SET name = $1 WHERE user_id = $2 " , name , user_id) 
+    if checking == False:
+        await ctx.send ('name changed!')
+
+@rename.error
+async def rename_error(ctx,error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send('where the name dumbo')
+
+@bot.command()
+async def hot(ctx):
+    hotnum = random.randint(1,3)
+    if hotnum == 1:
+        await ctx.send('ishaan is hot')
+    if hotnum == 2:
+        await ctx.send('deevyen is hot')
+    if hotnum == 3:
+        await ctx.send('nails is hot')
+
+@bot.command()
+async def v(ctx):
+    await ctx.send('choke me like you hate me lowkey wanna date me~')
+
+@bot.command()
+async def ball(ctx ):
+    ballnum = random.randint(1,10)
+    if ballnum == 1:
+      await ctx.send('yes')
+    elif ballnum == 2:
+      await ctx.send('no')
+    elif ballnum == 3:
+      await ctx.send('IMPOSIBBLE')
+    elif ballnum == 4:
+      await ctx.send('youll findout')
+    else:
+      await ctx.send('without a doubt')
+    
+async def main():
+    await create_db_pool() # again, no need to run with AbstractLoopEvent if you can await
+    await bot.start('bot key')
+
+asyncio.run(main())
